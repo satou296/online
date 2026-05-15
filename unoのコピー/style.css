@@ -1,0 +1,44 @@
+body { font-family: sans-serif; background: #222; color: white; text-align: center; }
+
+.card {
+    width: 80px;            /* 元のサイズ */
+    height: 120px;          /* 元のサイズ */
+    border-radius: 8px;
+    border: 2px solid #fff;
+    display: inline-block;
+    margin: 5px;
+    text-align: center;
+    line-height: 120px;     /* 中央揃え */
+    font-weight: bold;
+    font-size: 20px;        /* 前の大きめサイズに戻す */
+    cursor: pointer;
+    color: white;
+    text-shadow: 1px 1px 2px #000; /* 文字を見やすく */
+
+    transition: transform 0.2s;
+}
+
+/* 特殊カードの文字が長い場合、少しだけ小さくする設定 */
+.card:empty::before { content: attr(data-value); } /* 文字挿入用（任意） */
+
+.red { background: #ff5555; }
+.blue { background: #5555ff; }
+.green { background: #55aa55; }
+.yellow { background: #ffaa00; }
+
+.player-area { border: 1px solid #444; margin: 10px; padding: 10px; transition: 0.3s; border-radius: 10px; }
+.active { border: 2px solid #fff; background: rgba(255,255,255,0.1); transform: scale(1.02); }
+
+#setup-screen { margin-top: 100px; }
+button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; border-radius: 5px; border: none; background: #eee; }
+button:hover { background: #ccc; }
+
+/* カードの裏面（追加） */
+.card-back {
+    background: linear-gradient(45deg, #555 25%, #333 25%, #333 50%, #555 50%, #555 75%, #333 75%, #333 100%);
+    background-size: 20px 20px;
+    background-color: #444 !important;
+    color: transparent !important; /* 文字を隠す */
+    text-shadow: none !important;
+    cursor: default;
+}

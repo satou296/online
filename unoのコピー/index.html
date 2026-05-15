@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>UNO Multi-Player</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="setup-screen">
+        <h1>UNOへようこそ</h1>
+        <p>プレイヤー人数を選んでください</p>
+        <button onclick="startGame(1)">1人 (vs CPU)</button>
+        <button onclick="startGame(2)">2人</button>
+        <button onclick="startGame(3)">3人</button>
+        <button onclick="startGame(4)">4人</button>
+    </div>
+
+    <div id="game-board" style="display: none;">
+        <h2 id="turn-display">プレイヤー 1 の番です</h2>
+        
+        <div class="field">
+            <div id="discard-pile" class="card">--</div>
+            <p>場札</p>
+        </div>
+
+        <div id="player-hands-container">
+            <!-- 各プレイヤーの手札がここに表示されます -->
+        </div>
+
+        <div class="controls">
+            <button id="draw-btn" onclick="drawCard()">山札から引く</button>
+            <button id="next-btn" onclick="manualNextTurn()" style="display: none;">次の番へ</button>
+            <p id="message"></p>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
