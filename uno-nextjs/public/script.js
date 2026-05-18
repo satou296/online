@@ -1,18 +1,26 @@
 const colors = ['red', 'blue', 'green', 'yellow'];
 const numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-const specialTypes = ['Skip', 'Reverse', 'Draw2']; // 特殊カードの種類
+const specialTypes = ['Skip', 'Reverse', 'Draw2']; 
 
 let players = [];
 let currentPlayerIndex = 0;
 let playerCount = 0;
 let discardCard = null;
-let isReverse = false; // リバース状態の管理
-let hasDrawn = false; // そのターンに既にカードを引いたかどうかのフラグ
+let isReverse = false; 
+let hasDrawn = false; 
+let drawStack = 0; 
+let isHidingHands = false; // 手札を一時的に全員裏返しにしているかどうかのフラグ
+let pendingNextPlayerIndex = null; // 次のターンになる予定のプレイヤー
 
 function startGame(num) {
     playerCount = num;
-    isReverse = false; // リバースを初期化
+    isReverse = false; 
     currentPlayerIndex = 0;
+    drawStack = 0; 
+    hasDrawn = false;
+    isHidingHands = false;
+    pendingNextPlayerIndex = null;
+    
     document.getElementById('setup-screen').style.display = 'none';
     document.getElementById('game-board').style.display = 'block';
 
@@ -23,16 +31,16 @@ function startGame(num) {
         players.push(hand);
     }
 
-    // 最初の場札は数字カードが出るまで引き直す（UNO公式ルールに近い形）
     do {
         discardCard = generateRandomCard();
     } while (typeof discardCard.value !== 'number');
 
+    document.getElementById('message').textContent = "ゲームが始まりました！";
     updateUI();
 }
 
 function generateRandomCard() {
-    const isSpecial = Math.random() < 0.25; // 25%の確率で特殊カード
+    const isSpecial = Math.random() < 0.25; 
     const color = colors[Math.floor(Math.random() * colors.length)];
     let value;
 
@@ -46,8 +54,14 @@ function generateRandomCard() {
 }
 
 function updateUI() {
-    document.getElementById('turn-display').textContent = 
-        `プレイヤー ${currentPlayerIndex + 1} の番です ${isReverse ? '(リバース中)' : ''}`;
+    // ターン中、または確認画面中かでメッセージを変える
+    if (isHidingHands) {
+        document.getElementById('turn-display').textContent = 
+            `【確認画面】次は プレイヤー ${pendingNextPlayerIndex + 1} の番です`;
+    } else {
+        document.getElementById('turn-display').textContent = 
+            `プレイヤー ${currentPlayerIndex + 1} の番です ${isReverse ? '(リバース中)' : ''}`;
+    }
 
     const discardEl = document.getElementById('discard-pile');
     discardEl.textContent = discardCard.value;
@@ -60,7 +74,7 @@ function updateUI() {
     players.forEach((hand, pIndex) => {
         const isCurrentPlayer = (pIndex === currentPlayerIndex);
         const playerDiv = document.createElement('div');
-        playerDiv.className = isCurrentPlayer ? 'player-area active' : 'player-area';
+        playerDiv.className = (!isHidingHands && isCurrentPlayer) ? 'player-area active' : 'player-area';
         playerDiv.innerHTML = `<h3>プレイヤー ${pIndex + 1} (${hand.length}枚)</h3>`;
         
         const handDiv = document.createElement('div');
@@ -69,16 +83,16 @@ function updateUI() {
         hand.forEach((card, cIndex) => {
             const cardEl = document.createElement('div');
             
-            if (isCurrentPlayer) {
-                // 自分の番：色と数字を表示
+            // 「手札を隠すモード」の時、または他人の番の時は裏返しにする
+            if (isHidingHands || !isCurrentPlayer) {
+                cardEl.className = `card card-back`;
+                cardEl.textContent = '';
+            } else {
+                // 自分の番かつ隠してない時だけ表にする
                 cardEl.className = `card ${card.color}`;
                 cardEl.textContent = card.value;
                 cardEl.style.fontSize = typeof card.value === 'string' ? '14px' : '24px';
                 cardEl.onclick = () => playCard(cIndex);
-            } else {
-                // 他人の番：裏返しにする
-                cardEl.className = `card card-back`;
-                cardEl.textContent = ''; // 文字を表示しない
             }
             
             handDiv.appendChild(cardEl);
@@ -87,61 +101,47 @@ function updateUI() {
         container.appendChild(playerDiv);
     });
 
-    // ボタンの表示制御
+    // ボタンの表示制御用
     const drawBtn = document.getElementById('draw-btn');
     const nextBtn = document.getElementById('next-btn');
+    const hideBtn = document.getElementById('hide-btn');
+    const revealBtn = document.getElementById('reveal-btn');
 
-    if (hasDrawn) {
-        drawBtn.style.display = "none";    // 引いた後は「引く」を隠す
-        nextBtn.style.display = "inline"; // 「次の番へ」を表示
+    // 全てのボタンを一旦非表示に
+    drawBtn.style.display = "none";
+    nextBtn.style.display = "none";
+    if(hideBtn) hideBtn.style.display = "none";
+    if(revealBtn) revealBtn.style.display = "none";
+
+    if (isHidingHands) {
+        // 次のプレイヤーが手札を表にするためのボタンを表示
+        if(revealBtn) revealBtn.style.display = "inline";
+    } else if (pendingNextPlayerIndex !== null) {
+        // カードを出し終わり、次の番へ行く前に「手札を裏返す」ボタンを表示
+        if(hideBtn) hideBtn.style.display = "inline";
     } else {
-        drawBtn.style.display = "inline";
-        nextBtn.style.display = "none";
-    }
-
-}
-
-function handleSpecialCard(value) {
-    const msg = document.getElementById('message');
-    
-    if (value === 'Skip') {
-        msg.textContent = "スキップ！次のプレイヤーを飛ばします。";
-        moveNextPlayer(); // 1回余分に進める
-        moveNextPlayer();
-    } else if (value === 'Reverse') {
-        msg.textContent = "リバース！順番が逆になります。";
-        isReverse = !isReverse;
-        if (playerCount === 2) {
-            // 2人プレイ時のリバースはスキップと同じ扱い
-            moveNextPlayer();
-            moveNextPlayer();
+        // 通常の手番中のボタン制御
+        if (drawStack > 0) {
+            drawBtn.style.display = "inline";
+            drawBtn.textContent = `ペナルティカードを引く (${drawStack * 2}枚)`;
         } else {
-            moveNextPlayer();
+            drawBtn.textContent = "カードを引く";
+            if (hasDrawn) {
+                nextBtn.style.display = "inline"; // 「次の番へ」を表示
+            } else {
+                drawBtn.style.display = "inline";
+            }
         }
-    } else if (value === 'Draw2') {
-        msg.textContent = "ドロー2！次のプレイヤーは2枚引いて休みです。";
-        moveNextPlayer();
-        // 次のプレイヤーに2枚追加
-        for(let i=0; i<2; i++) players[currentPlayerIndex].push(generateRandomCard());
-        moveNextPlayer(); // 休み（飛ばす）
-    } else {
-        msg.textContent = "カードを出しました。";
-        moveNextPlayer();
     }
-    updateUI();
 }
 
-let drawStack = 0; // 累積しているDraw2の枚数
-
-// playCard の最後でも nextTurn() を呼ぶように調整
 function playCard(cardIndex) {
     const hand = players[currentPlayerIndex];
     const card = hand[cardIndex];
 
-    // ルール判定
     if (drawStack > 0) {
         if (card.value !== 'Draw2') {
-            alert("Draw2を重ねてください！");
+            alert("Draw2が累積しています！重ねるか引いてください。");
             return;
         }
     } else if (!canPlay(card)) {
@@ -149,7 +149,6 @@ function playCard(cardIndex) {
         return;
     }
 
-    // カードを出す
     discardCard = hand.splice(cardIndex, 1)[0];
 
     if (hand.length === 0) {
@@ -158,75 +157,72 @@ function playCard(cardIndex) {
         return;
     }
 
-    handleSpecialEffect(card.value);
+    // 自動でプレイヤーを切り替えず、次のプレイヤーを「予約」する
+    prepareNextPlayer(card.value);
 }
 
 /**
- * 特殊カードの効果を処理する
+ * 特殊効果を計算し、次のプレイヤーを「予約（保留）」状態にする
  */
-function handleSpecialEffect(value) {
+function prepareNextPlayer(value) {
     const msg = document.getElementById('message');
-    
+    let nextIndex = currentPlayerIndex;
+
+    // 次のインデックスを計算する局所関数
+    const getNextIndex = (current) => {
+        const direction = isReverse ? -1 : 1;
+        return (current + direction + playerCount) % playerCount;
+    };
+
     if (value === 'Skip') {
-        msg.textContent = "スキップ！次のプレイヤーを飛ばしました。";
-        // 2回移動することで、次の人を飛ばしてその隣の人へ
-        moveNextPlayer(); 
-        moveNextPlayer();
+        msg.textContent = `スキップ発動！次のプレイヤーは飛ばされます。「手札を裏返す」を押してください。`;
+        nextIndex = getNextIndex(currentPlayerIndex); 
+        nextIndex = getNextIndex(nextIndex); // 2回進める
     } 
     else if (value === 'Reverse') {
-        // 1. まず方向を反転させる
         isReverse = !isReverse;
-        msg.textContent = isReverse ? "リバース！左回りになります。" : "リバース！右回りになります。";
+        msg.textContent = `リバース発動！ ${isReverse ? '左回り' : 'right回り'} になります。「手札を裏返す」を押してください。`;
         
-        // 2. 2人プレイかそれ以上かで挙動を変える（UNO公式ルール準拠）
         if (playerCount === 2) {
-            // 2人の時はリバースは「スキップ」と同じ扱い
-            moveNextPlayer(); 
-            moveNextPlayer();
+            nextIndex = getNextIndex(currentPlayerIndex); 
+            nextIndex = getNextIndex(nextIndex);
         } else {
-            // 3人以上の時は、反転した後の「次の人」へ移動
-            moveNextPlayer();
+            nextIndex = getNextIndex(currentPlayerIndex);
         }
     } 
     else if (value === 'Draw2') {
         drawStack += 1;
-        msg.textContent = `Draw2! 現在 ${drawStack * 2} 枚のペナルティ。`;
-        moveNextPlayer();
+        msg.textContent = `Draw2発生！ 現在のペナルティ：${drawStack * 2}枚。「手札を裏返す」を押してください。`;
+        nextIndex = getNextIndex(currentPlayerIndex);
     } 
     else {
-        // 数字カードの場合
-        msg.textContent = "カードを出しました。";
-        moveNextPlayer();
+        msg.textContent = `カードを出しました。「手札を裏返す」を押してください。`;
+        nextIndex = getNextIndex(currentPlayerIndex);
     }
 
-    hasDrawn = false; // ターン終了なのでフラグをリセット
-    updateUI();      // 画面更新（ここで次のプレイヤーの手札が表示される）
+    pendingNextPlayerIndex = nextIndex; // 次の番になる人を予約
+    updateUI(); // ボタンが「手札を裏返す」に変わる
 }
 
-function handleSpecialCard(value) {
-    const msg = document.getElementById('message');
+/**
+ * 現在のプレイヤーがボタンを押し、自分の手札を裏返す処理
+ */
+function hideCurrentHand() {
+    isHidingHands = true;
+    document.getElementById('message').textContent = `画面を プレイヤー ${pendingNextPlayerIndex + 1} に渡してください。準備ができたら下のボタンを押してください。`;
+    updateUI(); // ボタンが「次のプレイヤーの手札を表示」に変わる
+}
+
+/**
+ * 次のプレイヤーがボタンを押し、自分の手札を表にして手番を開始する処理
+ */
+function revealNextHand() {
+    currentPlayerIndex = pendingNextPlayerIndex; // ここで正式にプレイヤー交代
+    pendingNextPlayerIndex = null; // 予約クリア
+    isHidingHands = false; // 裏返しモード解除
+    hasDrawn = false; // フラグクリア
     
-    if (value === 'Skip') {
-        msg.textContent = "スキップ！";
-        moveNextPlayer();
-        moveNextPlayer();
-    } else if (value === 'Reverse') {
-        msg.textContent = "リバース！";
-        isReverse = !isReverse;
-        if (playerCount === 2) {
-            moveNextPlayer(); 
-            moveNextPlayer();
-        } else {
-            moveNextPlayer();
-        }
-    } else if (value === 'Draw2') {
-        drawStack += 1; // 累積枚数を増やす
-        msg.textContent = `Draw2発生！ 現在 ${drawStack * 2} 枚のペナルティ！`;
-        moveNextPlayer();
-    } else {
-        msg.textContent = "カードを出しました。";
-        moveNextPlayer();
-    }
+    document.getElementById('message').textContent = `プレイヤー ${currentPlayerIndex + 1} の番です。`;
     updateUI();
 }
 
@@ -235,15 +231,18 @@ function drawCard() {
     const msg = document.getElementById('message');
 
     if (drawStack > 0) {
-        // Draw2累積時の処理
         const penaltyCount = drawStack * 2;
         for (let i = 0; i < penaltyCount; i++) {
             hand.push(generateRandomCard());
         }
-        msg.textContent = `${penaltyCount}枚引きました。次の人の番です。`;
-        drawStack = 0;
+        drawStack = 0; 
+        
+        // 自動で次に行かず、手札を裏返すプロセスへ進む
+        msg.textContent = `ペナルティとして ${penaltyCount} 枚引きました。「手札を裏返す」を押してください。`;
+        
+        const direction = isReverse ? -1 : 1;
+        pendingNextPlayerIndex = (currentPlayerIndex + direction + playerCount) % playerCount;
         updateUI();
-        setTimeout(nextTurn, 1500); // ペナルティ後は自動で次へ
         return;
     }
 
@@ -252,48 +251,26 @@ function drawCard() {
         return;
     }
 
-    // 通常のドロー：手札に加えるだけ
     const newCard = generateRandomCard();
     hand.push(newCard);
-    hasDrawn = true; // 引いたフラグを立てる
+    hasDrawn = true;
     
     msg.textContent = "1枚引きました。出せるカードがあれば出してください。なければ「次の番へ」を押してください。";
-    
     updateUI();
 }
 
 /**
- * 手動で次の番へ回る（カードを引いた後に出せない/出したくない場合）
+ * 通常のドロー後に出せない/出さない場合の「次の番へ」
  */
 function manualNextTurn() {
-    const msg = document.getElementById('message');
-    msg.textContent = "";
-    nextTurn();
-}
-
-/**
- * ターンを交代する際の共通処理
- */
-function nextTurn() {
-    hasDrawn = false; // フラグをリセット
     const direction = isReverse ? -1 : 1;
-    currentPlayerIndex = (currentPlayerIndex + direction + playerCount) % playerCount;
+    pendingNextPlayerIndex = (currentPlayerIndex + direction + playerCount) % playerCount;
+    
+    document.getElementById('message').textContent = "パスしました。「手札を裏返す」を押してください。";
     updateUI();
 }
 
-
-
 function canPlay(card) {
-    // 累積中はDraw2のみ、通常時は色か値が一致
     if (drawStack > 0) return card.value === 'Draw2';
     return card.color === discardCard.color || card.value === discardCard.value;
-}
-
-/**
- * プレイヤーのインデックスを現在の方向に1つ進める
- */
-function moveNextPlayer() {
-    const direction = isReverse ? -1 : 1;
-    // (現在の番号 + 方向 + 全人数) % 全人数 で、マイナスにならずにループ計算できます
-    currentPlayerIndex = (currentPlayerIndex + direction + playerCount) % playerCount;
 }
