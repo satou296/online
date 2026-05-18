@@ -1,24 +1,45 @@
 body { font-family: sans-serif; background: #222; color: white; text-align: center; }
 
+/* ★追加: カードが並ぶ手札のエリア（中央揃えにして、カードを並べる） */
+.hand {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap; /* 画面幅が狭いときは折り返す */
+    padding: 10px;
+}
+
 .card {
-    width: 80px;
-    height: 120px;
+    width: 80px;            
+    height: 120px;          
     border-radius: 8px;
     border: 2px solid #fff;
     display: inline-block;
-    margin: 5px;
+    /* margin: 5px;  重なりを作るために、ここのmarginは削除またはコメントアウトします */
     text-align: center;
-    line-height: 120px;
+    line-height: 120px;     
     font-weight: bold;
-    font-size: 20px;
+    font-size: 20px;        
     cursor: pointer;
     color: white;
-    text-shadow: 1px 1px 2px #000;
+    text-shadow: 1px 1px 2px #000; 
 
-    transition: transform 0.2s;
+    transition: transform 0.2s, margin 0.2s; /* アニメーション */
 }
 
-.card:empty::before { content: attr(data-value); }
+/* 他人の手札（裏面カード）の2枚目以降だけを左に50px重ねる */
+.hand .card-back:not(:first-child) {
+    margin-left: -50px; 
+}
+
+/* ★追加: マウスを乗せた（ホバーした）カードを前に出し、少し大きく浮かせる */
+.hand .card:hover {
+    transform: translateY(-15px) scale(1.05); /* 上に15px浮き上がらせて、少し拡大 */
+    z-index: 10; /* 重なり順を一番上にする */
+    position: relative;
+}
+
+/* 特殊カードの文字が長い場合、少しだけ小さくする設定 */
+.card:empty::before { content: attr(data-value); } 
 
 .red { background: #ff5555; }
 .blue { background: #5555ff; }
@@ -32,11 +53,12 @@ body { font-family: sans-serif; background: #222; color: white; text-align: cent
 button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 5px; border-radius: 5px; border: none; background: #eee; }
 button:hover { background: #ccc; }
 
+/* カードの裏面 */
 .card-back {
     background: linear-gradient(45deg, #555 25%, #333 25%, #333 50%, #555 50%, #555 75%, #333 75%, #333 100%);
     background-size: 20px 20px;
     background-color: #444 !important;
-    color: transparent !important;
+    color: transparent !important; 
     text-shadow: none !important;
     cursor: default;
 }
